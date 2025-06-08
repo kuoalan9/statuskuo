@@ -2,11 +2,13 @@ services:
   - type: web
     name: ghost
     env: docker
-    repo: https://github.com/your-username/your-repo
-    dockerContext: ./ghost
-    dockerfilePath: ghost/Dockerfile
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: database__client
         value: sqlite3
       - key: url
-        value: https://your-ghost-service.onrender.com
+        value: https://statuskuo.onrender.com
+    disk:
+      name: ghost-data
+      mountPath: /var/lib/ghost/content
+      sizeGB: 1
