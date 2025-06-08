@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ghost
+    env: docker
+    repo: https://github.com/your-username/your-repo
+    dockerContext: ./ghost
+    dockerfilePath: ghost/Dockerfile
+    envVars:
+      - key: database__client
+        value: sqlite3
+      - key: url
+        value: https://your-ghost-service.onrender.com
