@@ -1,1 +1,0 @@
-docker run -d -p 2368:2368 --env-file .env ghost:latest
