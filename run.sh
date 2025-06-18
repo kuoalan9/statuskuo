@@ -1,8 +1,6 @@
 echo "Starting Ghost with MySQL configuration..."
 # Load environment variables
 source .env
-echo "Environment variables:"
-printenv | sort
 
 docker run -d \
   -p 2368:2368 \
