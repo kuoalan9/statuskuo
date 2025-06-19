@@ -1,5 +1,6 @@
+#!/bin/bash
+
 echo "Starting Ghost with MySQL configuration..."
-# Load environment variables
 source .env
 
 docker run -d \
