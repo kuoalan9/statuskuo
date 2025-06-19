@@ -1,41 +1,84 @@
 #!/bin/bash
 
-set -e
+# Docker Installation Script for Containerized Environments
+# Compatible with Render.com, Docker containers, and other root environments
 
-echo "🔧 Updating package index..."
-sudo apt-get update -y
+set -e  # Exit on any error
 
-echo "📦 Installing prerequisite packages..."
-sudo apt-get install -y \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release
+echo "🐳 Starting Docker installation..."
 
-echo "🔑 Adding Docker’s GPG key..."
-sudo mkdir -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-    sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+# Check if we're in a containerized environment (like Render)
+if [[ $EUID -eq 0 ]]; then
+   echo "🔧 Running as root (containerized environment detected)"
+   USE_SUDO=""
+else
+   echo "👤 Running as regular user"
+   USE_SUDO="sudo"
+fi
 
-echo "📝 Setting up the Docker repository..."
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Update package list
+echo "📦 Updating package list..."
+$USE_SUDO apt update
 
-echo "🔄 Updating package index (again)..."
-sudo apt-get update -y
+# Install Docker
+echo "🔧 Installing Docker..."
+$USE_SUDO apt install -y docker.io
 
-echo "🐳 Installing Docker Engine..."
-sudo apt-get install -y \
-    docker-ce \
-    docker-ce-cli \
-    containerd.io \
-    docker-buildx-plugin \
-    docker-compose-plugin
+# Only manage systemd services if systemctl is available
+if command -v systemctl >/dev/null 2>&1; then
+    echo "🚀 Starting Docker service..."
+    $USE_SUDO systemctl start docker
+    $USE_SUDO systemctl enable docker
+    SERVICE_STATUS=$($USE_SUDO systemctl is-active docker 2>/dev/null || echo "unknown")
+else
+    echo "⚠️  systemctl not available - starting Docker daemon manually..."
+    # Try to start Docker daemon in background
+    if command -v dockerd >/dev/null 2>&1; then
+        $USE_SUDO dockerd > /dev/null 2>&1 &
+        sleep 5
+        SERVICE_STATUS="started-manually"
+    else
+        echo "⚠️  Docker daemon management not available in this environment"
+        SERVICE_STATUS="manual-start-required"
+    fi
+fi
 
-echo "✅ Docker installed successfully!"
-
-echo "📂 Adding current user to docker group (optional)..."
-sudo usermod -aG docker $USER
-echo "⚠️ You must log out and log back in (or run 'newgrp docker') for this to take effect."
+# Only manage user groups if not root
+if [[ $EUID -ne 0 ]]; then
+    echo "👤 Adding user $USER to docker group..."
+    $USE_SUDO usermod -aG docker $USER
+    
+    echo "🔄 Applying group membership..."
+    newgrp docker <<EOF
+    echo "✅ Verifying Docker installation..."
+    docker --version
+    
+    echo "🧪 Testing Docker with hello-world container..."
+    docker run --rm hello-world
+    
+    echo ""
+    echo "🎉 Docker installation completed successfully!"
+    echo "📝 Docker version: \$(docker --version)"
+    echo "🔧 Docker service status: $SERVICE_STATUS"
+EOF
+else
+    echo "✅ Verifying Docker installation..."
+    docker --version
+    
+    # Test if Docker daemon is running
+    if docker info >/dev/null 2>&1; then
+        echo "🧪 Testing Docker with hello-world container..."
+        docker run --rm hello-world
+        
+        echo ""
+        echo "🎉 Docker installation completed successfully!"
+        echo "📝 Docker version: $(docker --version)"
+        echo "🔧 Docker service status: $SERVICE_STATUS"
+        echo "✨ Docker is ready to use!"
+    else
+        echo ""
+        echo "⚠️  Docker installed but daemon not running"
+        echo "📝 Docker version: $(docker --version)"
+        echo "💡 You may need to start the Docker daemon manually or configure your environment"
+    fi
+fi
